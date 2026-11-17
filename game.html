@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Space Dash</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #08051b;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  overflow: hidden;
+}
+
+h1 {
+  margin: 15px;
+  color: #00f7ff;
+  text-shadow: 0 0 20px #00f7ff;
+}
+
+#info {
+  display: flex;
+  justify-content: center;
+  gap: 35px;
+  margin: 12px;
+  font-size: 20px;
+  color: #ffe66d;
+}
+
+#game {
+  position: relative;
+  width: min(95vw, 600px);
+  height: 70vh;
+  min-height: 350px;
+  max-height: 650px;
+  margin: auto;
+  overflow: hidden;
+  border: 3px solid #00eaff;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 20% 20%, #37216c, transparent 35%),
+    linear-gradient(#090522, #140b35);
+  box-shadow: 0 0 30px #00eaff66;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle 1s infinite alternate;
+}
+
+@keyframes twinkle {
+  to { opacity: .2; }
+}
+
+#player {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 45px;
+  z-index: 2;
+}
+
+.object {
+  position: absolute;
+  font-size: 32px;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  background: #08051bdd;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 5;
+}
+
+#overlay h2 {
+  color: #00f7ff;
+  font-size: 35px;
+}
+
+button {
+  padding: 13px 28px;
+  border: none;
+  border-radius: 10px;
+  background: #00eaff;
+  color: #08051b;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 15px #00eaff;
+}
+
+button:hover {
+  background: #ffe66d;
+}
+
+.controls {
+  margin: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.controls button {
+  width: 90px;
+}
+
+p {
+  color: #b7c5ff;
+  margin: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🚀 NEON SPACE DASH</h1>
+
+<div id="info">
+  <div>⭐ Score: <span id="score">0</span></div>
+  <div>🏆 Best: <span id="best">0</span></div>
+</div>
+
+<div id="game">
+
+  <div id="player">🚀</div>
+
+  <div id="overlay">
+    <h2>SPACE DASH</h2>
+    <p>Dodge meteors and collect stars!</p>
+    <button onclick="startGame()">START GAME</button>
+  </div>
+
+</div>
+
+<div class="controls">
+  <button id="left">⬅ LEFT</button>
+  <button id="right">RIGHT ➡</button>
+</div>
+
+<p>Use ← → arrow keys or the buttons to move.</p>
+
+<script>
+const game = document.getElementById("game");
+const player = document.getElementById("player");
+const scoreText = document.getElementById("score");
+const bestText = document.getElementById("best");
+const overlay = document.getElementById("overlay");
+
+let score = 0;
+let best = Number(localStorage.getItem("spaceBest")) || 0;
+let playerX = 50;
+let objects = [];
+let running = false;
+let lastSpawn = 0;
+let animation;
+let keys = {};
+
+bestText.textContent = best;
+
+// Background stars
+for (let i = 0; i < 45; i++) {
+  let star = document.createElement("div");
+  star.className = "star";
+  star.style.left = Math.random() * 100 + "%";
+  star.style.top = Math.random() * 100 + "%";
+  star.style.width = star.style.height =
+    (Math.random() * 3 + 1) + "px";
+  game.appendChild(star);
+}
+
+function movePlayer(direction) {
+  if (!running) return;
+  playerX += direction * 5;
+  playerX = Math.max(5, Math.min(95, playerX));
+  player.style.left = playerX + "%";
+}
+
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+});
+
+document.addEventListener("keyup", e => {
+  keys[e.key] = false;
+});
+
+document.getElementById("left").addEventListener("click",
+  () => movePlayer(-1));
+
+document.getElementById("right").addEventListener("click",
+  () => movePlayer(1));
+
+function spawnObject() {
+  const isStar = Math.random() < 0.35;
+  const obj = document.createElement("div");
+
+  obj.className = "object";
+  obj.textContent = isStar ? "⭐" : "☄️";
+  obj.dataset.type = isStar ? "star" : "meteor";
+
+  obj.style.left = Math.random() * 90 + "%";
+  obj.style.top = "-40px";
+
+  game.appendChild(obj);
+
+  objects.push({
+    element: obj,
+    y: -40,
+    x: parseFloat(obj.style.left),
+    type: obj.dataset.type
+  });
+}
+
+function gameLoop(time) {
+  if (!running) return;
+
+  if (keys["ArrowLeft"] || keys["a"]) movePlayer(-1);
+  if (keys["ArrowRight"] || keys["d"]) movePlayer(1);
+
+  if (time - lastSpawn > Math.max(350, 850 - score * 3)) {
+    spawnObject();
+    lastSpawn = time;
+  }
+
+  const playerRect = player.getBoundingClientRect();
+
+  objects.forEach((obj, index) => {
+    obj.y += 3 + score / 40;
+    obj.element.style.top = obj.y + "px";
+
+    const rect = obj.element.getBoundingClientRect();
+
+    const hit =
+      playerRect.left < rect.right &&
+      playerRect.right > rect.left &&
+      playerRect.top < rect.bottom &&
+      playerRect.bottom > rect.top;
+
+    if (hit) {
+      if (obj.type === "star") {
+        score += 10;
+        scoreText.textContent = score;
+        obj.y = 9999;
+      } else {
+        endGame();
+      }
+    }
+  });
+
+  objects = objects.filter(obj => {
+    if (obj.y > game.clientHeight + 40 || obj.y > 9000) {
+      obj.element.remove();
+      return false;
+    }
+    return true;
+  });
+
+  if (running) {
+    animation = requestAnimationFrame(gameLoop);
+  }
+}
+
+function startGame() {
+  cancelAnimationFrame(animation);
+
+  objects.forEach(obj => obj.element.remove());
+  objects = [];
+
+  score = 0;
+  playerX = 50;
+  lastSpawn = 0;
+  running = true;
+
+  player.style.left = "50%";
+  scoreText.textContent = "0";
+  overlay.style.display = "none";
+
+  animation = requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animation);
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("spaceBest", best);
+    bestText.textContent = best;
+  }
+
+  overlay.innerHTML = `
+    <h2>GAME OVER!</h2>
+    <p>Your score: ${score}</p>
+    <p>Best score: ${best}</p>
+    <button onclick="startGame()">PLAY AGAIN</button>
+  `;
+
+  overlay.style.display = "flex";
+}
+</script>
+
+</body>
+</html>
